@@ -27,7 +27,7 @@ using GridapGmsh
 # ##################
 # # create labelled boundary tags
 # labels = get_face_labeling(model) #this will create a dictionary with the tags of the faces
-# add_tag_from_tags!(labels,"inlet",[6,]) #change the tag of the face with tag 6 to "diri1"
+# add_tag_from_tags!(labels,"inlet",[,]) #change the tag of the face with tag 6 to "diri1"
 # add_tag_from_tags!(labels,"wall",[1,2,3,4,7,8]) #change the tag of the faces with tags 1,2,3,4,5,7,8 to "diri0"
 # add_tag_from_tags!(labels,"outlet",[5,]) #change the tag of the face with tag 6 to "diri1"
 
@@ -128,7 +128,7 @@ jac((u,p),(du,dp),(v,q)) = a((du,dp),(v,q)) + dc(u,du,v) #+ dneumann(du,v)
 op = FEOperator(res,jac,X,Y)
 
 solver_u = LUSolver()
-solver_p = CGSolver(JacobiLinearSolver();maxiter=50,atol=1e-14,rtol=1.e-6)
+solver_p = CGSolver(JacobiLinearSolver();maxiter=50,atol=8.e-3,rtol=1.e-6)
 #solver_p.log.depth = 4
 
 α = 5.0
@@ -142,12 +142,12 @@ LinearSystemBlock()      p_block       ]
 coeffs = [1.0 1.0;
 0.0 1.0]
 P = BlockTriangularSolver(bblocks,[solver_u,solver_p],coeffs,:upper)
-solver = FGMRESSolver(100,P;atol=1e-10,rtol=1.e-12,verbose=true)
+solver = FGMRESSolver(45,P;atol=8.e-3,rtol=1.e-12,verbose=true)
 #solver.log.depth = 2
 
 ###############
 #set up solver
-nls = NewtonSolver(solver;maxiter=100,atol=1e-10,rtol=1.e-12, verbose=true)
+nls = NewtonSolver(solver;maxiter=30,atol=8.e-3,rtol=1.e-12, verbose=true)
 
 
 ###############
