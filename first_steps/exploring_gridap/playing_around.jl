@@ -11,20 +11,21 @@ using GridapSolvers.LinearSolvers, GridapSolvers.MultilevelTools, GridapSolvers.
 using GridapSolvers.BlockSolvers: LinearSystemBlock, NonlinearSystemBlock, BiformBlock, BlockTriangularSolver
 using GridapGmsh
 
+
 ###################
-# Create a Cartesian discrete model
+# # Create a Cartesian discrete model
 # n = 100 # Number of divisions in each direction
 # m=3
 # domain = (0,1,0,m) #(x_min, x_max, y_min, y_max)
 # partition = (n,m*n)
 # model = CartesianDiscreteModel(domain,partition)
 
-#write the model to a file
-#writevtk(model,"2D_square")
+# # #write the model to a file
+# #writevtk(model,"2D_square")
 
 
-###################
-# create labelled boundary tags
+# ##################
+# # create labelled boundary tags
 # labels = get_face_labeling(model) #this will create a dictionary with the tags of the faces
 # add_tag_from_tags!(labels,"inlet",[6,]) #change the tag of the face with tag 6 to "diri1"
 # add_tag_from_tags!(labels,"wall",[1,2,3,4,7,8]) #change the tag of the faces with tags 1,2,3,4,5,7,8 to "diri0"
@@ -42,7 +43,7 @@ using GridapGmsh
 
 
 #discrete model
-model=GmshDiscreteModel("first_steps/models/cylinder.msh")
+model=GmshDiscreteModel("first_steps/models/cylinder_lighter.msh")
 
 
 
@@ -53,20 +54,20 @@ D = 3
 
 order = 2
 reffeᵤ = ReferenceFE(lagrangian,VectorValue{D,Float64},order)
-V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall"])#flux at inlet is constant
+V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall", "inlet"])#flux at inlet is constant
 
 # We will use a Lagrangian finite element space of order 1 for pressure
 reffeₚ = ReferenceFE(lagrangian,Float64,order-1;space=:P)
-Q = TestFESpace(model,reffeₚ,conformity=:L2) #if neumann conditions or no conditions: put constraint=:zeromean
+Q = TestFESpace(model,reffeₚ,conformity=:L2, constraint=:zeromean) #if neumann conditions or no conditions: put constraint=:zeromean
 
 ###################
 # create trial space for velocity and pressure
 #set Dirichlet boundary conditions for velocity
 uDwalls = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0)
-uDtop = VectorValue(1,0) #this is the velocity at the top boundary
-uDbottom = VectorValue(0,0) #this is the velocity at the bottom boundary
+uDtop = (D == 2) ? VectorValue(0,1) : VectorValue(0,0,10) #this is the velocity at the top boundary
+uDbottom = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0) #this is the velocity at the bottom boundary
 
-U = TrialFESpace(V,[uDwalls])
+U = TrialFESpace(V,[uDwalls,uDtop])
 P = TrialFESpace(Q)
 
 mfs = BlockMultiFieldStyle(2,(1,1),(1,2))
@@ -91,7 +92,7 @@ n_Γ_o = -get_normal_vector(Γ_o)
 
 ###################
 #define weak form functions/terms
-const Re = 10.0
+const Re = 1.0
 conv(u,∇u) = Re*(∇u')⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
 
@@ -108,7 +109,7 @@ dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
 
 #neumann pressure boundary condition
-p_inlet= 100
+p_inlet= 1000
 p_out=0
 h_vflux_i= 10
 h_vflux_o= 0
@@ -119,7 +120,7 @@ neumann(u,v)=  ∫( (v·n_Γ_i) * p_inlet )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ
 dneumann(du,v)= ∫( v·(∇(du)·n_Γ_i))dΓ_i + ∫( v·(∇(du)·n_Γ_o))dΓ_o
 
 #residual and jacobian
-res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v) - neumann(u,v)
+res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v) #- neumann(u,v)  
 jac((u,p),(du,dp),(v,q)) = a((du,dp),(v,q)) + dc(u,du,v) #+ dneumann(du,v)
 
 ###############
@@ -127,10 +128,10 @@ jac((u,p),(du,dp),(v,q)) = a((du,dp),(v,q)) + dc(u,du,v) #+ dneumann(du,v)
 op = FEOperator(res,jac,X,Y)
 
 solver_u = LUSolver()
-solver_p = CGSolver(JacobiLinearSolver();maxiter=100,atol=1e-14,rtol=1.e-6)
+solver_p = CGSolver(JacobiLinearSolver();maxiter=50,atol=1e-14,rtol=1.e-6)
 #solver_p.log.depth = 4
 
-α = 1.e2
+α = 5.0
 
 
 u_block = NonlinearSystemBlock()
@@ -146,7 +147,7 @@ solver = FGMRESSolver(100,P;atol=1e-10,rtol=1.e-12,verbose=true)
 
 ###############
 #set up solver
-nls = NewtonSolver(solver;maxiter=100,atol=1e-10,rtol=1.e-12,verbose=true)
+nls = NewtonSolver(solver;maxiter=100,atol=1e-10,rtol=1.e-12, verbose=true)
 
 
 ###############
@@ -154,6 +155,6 @@ nls = NewtonSolver(solver;maxiter=100,atol=1e-10,rtol=1.e-12,verbose=true)
 uh, ph = solve(nls,op)
 
 #save the solution
-outputfile = "first_steps/tutorial_outputs/exploring_neumann_boundaries/NS_neumann"
+outputfile = "first_steps/tutorial_outputs/exploring_neumann_boundaries/NS_neumann_cylinder_different_initial_conds_3d"
 writevtk(Ωₕ,outputfile,cellfields=["uh"=>uh,"ph"=>ph])
 print("Solution saved to ", outputfile)
