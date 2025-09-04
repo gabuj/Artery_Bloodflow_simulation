@@ -11,37 +11,6 @@ using GridapSolvers.LinearSolvers, GridapSolvers.MultilevelTools, GridapSolvers.
 using GridapSolvers.BlockSolvers: LinearSystemBlock, NonlinearSystemBlock, BiformBlock, BlockTriangularSolver
 using GridapGmsh
 
-
-###################
-# # Create a Cartesian discrete model
-# n = 100 # Number of divisions in each direction
-# m=3
-# domain = (0,1,0,m) #(x_min, x_max, y_min, y_max)
-# partition = (n,m*n)
-# model = CartesianDiscreteModel(domain,partition)
-
-# # #write the model to a file
-# #writevtk(model,"2D_square")
-
-
-# ##################
-# # create labelled boundary tags
-# labels = get_face_labeling(model) #this will create a dictionary with the tags of the faces
-# add_tag_from_tags!(labels,"inlet",[,]) #change the tag of the face with tag 6 to "diri1"
-# add_tag_from_tags!(labels,"wall",[1,2,3,4,7,8]) #change the tag of the faces with tags 1,2,3,4,5,7,8 to "diri0"
-# add_tag_from_tags!(labels,"outlet",[5,]) #change the tag of the face with tag 6 to "diri1"
-
-
-
-
-
-
-
-
-
-
-
-
 #discrete model
 model=GmshDiscreteModel("first_steps/models/cylinder_lighter.msh")
 

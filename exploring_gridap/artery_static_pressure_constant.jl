@@ -1,4 +1,3 @@
-using GridapGmsh: get_face_labeling
 using Gridap
 using LineSearches: BackTracking
 
@@ -12,10 +11,11 @@ using GridapSolvers.LinearSolvers, GridapSolvers.MultilevelTools, GridapSolvers.
 using GridapSolvers.BlockSolvers: LinearSystemBlock, NonlinearSystemBlock, BiformBlock, BlockTriangularSolver
 using GridapGmsh
 
-model=DiscreteModelFromFile("first_steps/Artery_meshes/vtu_meshes/C021_light.msh")
-labels = get_face_labeling(model)
+# model=DiscreteModelFromFile("first_steps/Artery_meshes/vtu_meshes/C021_light.msh")
+# labels = get_face_labeling(model)
 
-#writevtk(model,"first_steps/Artery_meshes/gridap_outputs/C021")
+#discrete model
+model=GmshDiscreteModel("models/cylinder_lighter.msh")
 
 ###################
 # create test space for velocity and pressure
@@ -24,20 +24,20 @@ D = 3
 
 order = 2
 reffeᵤ = ReferenceFE(lagrangian,VectorValue{D,Float64},order)
-V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["walls"])#flux at inlet is constant
+V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall", "inlet"])#flux at inlet is constant
 
 # We will use a Lagrangian finite element space of order 1 for pressure
 reffeₚ = ReferenceFE(lagrangian,Float64,order-1;space=:P)
-Q = TestFESpace(model,reffeₚ,conformity=:L2) #if neumann conditions or no conditions: put constraint=:zeromean
+Q = TestFESpace(model,reffeₚ,conformity=:L2, constraint=:zeromean) #if neumann conditions or no conditions: put constraint=:zeromean
 
 ###################
 # create trial space for velocity and pressure
 #set Dirichlet boundary conditions for velocity
 uDwalls = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0)
-uDtop = VectorValue(1,0) #this is the velocity at the top boundary
-uDbottom = VectorValue(0,0) #this is the velocity at the bottom boundary
+uDtop = (D == 2) ? VectorValue(0,1) : VectorValue(0,0,10) #this is the velocity at the top boundary
+uDbottom = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0) #this is the velocity at the bottom boundary
 
-U = TrialFESpace(V,[uDwalls])
+U = TrialFESpace(V,[uDwalls,uDtop])
 P = TrialFESpace(Q)
 
 mfs = BlockMultiFieldStyle(2,(1,1),(1,2))
@@ -56,20 +56,19 @@ dΩ = Measure(Ωₕ,degree)
 dΓ_i = Measure(Γ_i,degree)
 n_Γ_i = -get_normal_vector(Γ_i)
 
-Γ_o = BoundaryTriangulation(model,tags=["outlet1", "outlet2"])
+Γ_o = BoundaryTriangulation(model,tags=["outlet"])
 dΓ_o = Measure(Γ_o,degree)
 n_Γ_o = -get_normal_vector(Γ_o)
 
 ###################
 #define weak form functions/terms
-const Re = 10.0
+const Re = 1.0
 conv(u,∇u) = Re*(∇u')⋅u
 dconv(du,∇du,u,∇u) = conv(u,∇du)+conv(du,∇u)
 
 ###################
 #write the weak form
 #linear part
-
 
 a((u,p),(v,q)) = ∫( ∇(v)⊙∇(u) - (∇⋅v)*p + q*(∇⋅u) )dΩ
 
@@ -90,15 +89,16 @@ neumann(u,v)=  ∫( (v·n_Γ_i) * p_inlet )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ
 dneumann(du,v)= ∫( v·(∇(du)·n_Γ_i))dΓ_i + ∫( v·(∇(du)·n_Γ_o))dΓ_o
 
 #residual and jacobian
-res((u,p),(v,q)) = a((u,p),(v,q)) - neumann(u,v) #+ c(u,v) 
-jac((u,p),(du,dp),(v,q)) = a((du,dp),(v,q)) #+ dc(u,du,v) #+ dneumann(du,v)
+res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v) #- neumann(u,v)  
+jac((u,p),(du,dp),(v,q)) = a((du,dp),(v,q)) + dc(u,du,v) #+ dneumann(du,v)
 
 ###############
 #setup FE problem
 op = FEOperator(res,jac,X,Y)
 
 solver_u = LUSolver()
-solver_p = CGSolver(JacobiLinearSolver();maxiter=100,atol=1e-14,rtol=1.e-6)
+# solver_u = FGMRESSolver(50, JacobiLinearSolver(); rtol=1e-4, atol=1e-5)
+solver_p = CGSolver(JacobiLinearSolver();maxiter=50,atol=1.e-3,rtol=5.e-5)
 #solver_p.log.depth = 4
 
 α = 1.e2
@@ -112,28 +112,19 @@ LinearSystemBlock()      p_block       ]
 coeffs = [1.0 1.0;
 0.0 1.0]
 P = BlockTriangularSolver(bblocks,[solver_u,solver_p],coeffs,:upper)
-solver = FGMRESSolver(100,P;atol=1e-10,rtol=1.e-12,verbose=true)
+solver = FGMRESSolver(45,P;atol=8.e-3,rtol=1.e-6,verbose=true)
 #solver.log.depth = 2
 
 ###############
 #set up solver
-nls = NewtonSolver(solver;maxiter=100,atol=1e-10,rtol=1.e-12,verbose=true)
+nls = NewtonSolver(solver;maxiter=10,atol=8.e-3,rtol=1.e-6, verbose=true)
 
 
 ###############
 #solve the problem
 uh, ph = solve(nls,op)
 
-
-
-
-
-
-
-
-
 #save the solution
-outputfile = "first_steps/tutorial_outputs/artery_constant_pressure"
+outputfile = "first_steps/tutorial_outputs/exploring_neumann_boundaries/NS_neumann_cylinder_different_initial_conds_3d"
 writevtk(Ωₕ,outputfile,cellfields=["uh"=>uh,"ph"=>ph])
-
-println("Solution written to $outputfile")
+print("Solution saved to ", outputfile)
