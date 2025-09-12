@@ -12,10 +12,6 @@ OUTPUT_FILENAME = "Artery_meshes/vtu_meshes/C024_fine.msh"
 
 
 
-# IMPORTANT: Specify the name of the cell data array in your VTU file that
-# contains the integer tags (0, 1, 2, 3). You may need to open your VTU file
-# in a viewer like ParaView to find this name. As per your feedback, this is
-# set to "CellEntityIds".
 VTU_TAG_ARRAY_NAME = "CellEntityIds" 
 
 def convert_vtu_to_gmsh(input_file, output_file, tag_name):
@@ -63,7 +59,7 @@ def convert_vtu_to_gmsh(input_file, output_file, tag_name):
         102: "inlet",
         103: "outlet1",
         104: "outlet2",
-        105: "outlet3",
+        105: "outlet3", #if present
     }
 
     # Offset tag IDs by dimension to avoid collision
@@ -154,8 +150,5 @@ def convert_vtu_to_gmsh(input_file, output_file, tag_name):
 
 if __name__ == '__main__':
     # Ensure the output directory exists
-    output_dir = os.path.dirname(OUTPUT_FILENAME)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        
+    output_dir = os.path.dirname(OUTPUT_FILENAME)   
     convert_vtu_to_gmsh(INPUT_FILENAME, OUTPUT_FILENAME, VTU_TAG_ARRAY_NAME)

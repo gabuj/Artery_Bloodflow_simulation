@@ -60,9 +60,13 @@ dΩ = Measure(Ωₕ,degree)
 dΓ_i = Measure(Γ_i,degree)
 n_Γ_i = -get_normal_vector(Γ_i)
 
-Γ_o = BoundaryTriangulation(model,tags=["outlet"])
-dΓ_o = Measure(Γ_o,degree)
-n_Γ_o = -get_normal_vector(Γ_o)
+Γ_o1 = BoundaryTriangulation(model,tags=["outlet1"])
+dΓ_o1 = Measure(Γ_o1,degree)
+n_Γ_o1 = -get_normal_vector(Γ_o1)
+
+Γ_o2 = BoundaryTriangulation(model,tags=["outlet2"])
+dΓ_o2 = Measure(Γ_o2,degree)
+n_Γ_o2 = -get_normal_vector(Γ_o2)
 
 ###################
 #define weak form functions/terms
@@ -92,7 +96,7 @@ p_inlet_func(t) = 1000.0 * sin(0.5*pi*t)   # your original
 
 
 # time-independent (for this time step) neumann functional using pval
-neumann_t(t,(u,v)) = ∫( (v·n_Γ_i) * p_inlet_func(t) )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ_o
+neumann_t(t,(u,v)) = ∫( (v·n_Γ_i) * p_inlet_func(t) )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ_o1 + ∫( (v·n_Γ_o) * p_out )dΓ_o2
 #dneumann(du,v)= ∫( v·(∇(du)·n_Γ_i))dΓ_i + ∫( v·(∇(du)·n_Γ_o))dΓ_o
 
 

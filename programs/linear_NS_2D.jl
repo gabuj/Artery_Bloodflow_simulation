@@ -47,7 +47,7 @@ D = 2
 
 order = 2
 reffeᵤ = ReferenceFE(lagrangian,VectorValue{D,Float64},order)
-V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall"])#flux at inlet is constant
+V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall", "inlet"])#flux at inlet is constant
 
 # We will use a Lagrangian finite element space of order 1 for pressure
 reffeₚ = ReferenceFE(lagrangian,Float64,order-1;space=:P)
@@ -60,7 +60,7 @@ uDwalls = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0)
 uDtop = (D == 2) ? VectorValue(0,1) : VectorValue(0,0,10) #this is the velocity at the top boundary
 uDbottom = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,10) #this is the velocity at the bottom boundary
 
-U = TrialFESpace(V,[uDwalls])
+U = TrialFESpace(V,[uDwalls, uDtop])
 P = TrialFESpace(Q)
 
 Y = MultiFieldFESpace([V, Q]) #sort of get it but will understand later why put both in the same space

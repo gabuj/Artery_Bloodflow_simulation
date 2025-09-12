@@ -69,9 +69,14 @@ function main(nparts, distribute)
     dΓ_i = Measure(Γ_i,degree)
     n_Γ_i = -get_normal_vector(Γ_i)
 
-    Γ_o = BoundaryTriangulation(model,tags=["outlet"])
-    dΓ_o = Measure(Γ_o,degree)
-    n_Γ_o = -get_normal_vector(Γ_o)
+    Γ_o1 = BoundaryTriangulation(model,tags=["outlet1"])
+    dΓ_o1 = Measure(Γ_o1,degree)
+    n_Γ_o1 = -get_normal_vector(Γ_o1)
+
+    Γ_o2 = BoundaryTriangulation(model,tags=["outlet2"])
+    dΓ_o2 = Measure(Γ_o2,degree)
+    n_Γ_o2 = -get_normal_vector(Γ_o2)
+
 
     ###################
     #define weak form functions/terms
@@ -96,12 +101,12 @@ function main(nparts, distribute)
     h_vflux_o= 0
 
     #pressure neumann boundary conditions with free flux
-    neumann(u,v)=  ∫( (v·n_Γ_i) * p_inlet )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ_o #- ∫( v·(∇(u)·n_Γ_i))dΓ_i - ∫( v·(∇(u)·n_Γ_o))dΓ_o
+    neumann(u,v)=  ∫( (v·n_Γ_i) * p_inlet )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ_o1 + ∫( (v·n_Γ_o) * p_out )dΓ_o2
 
     dneumann(du,v)= ∫( v·(∇(du)·n_Γ_i))dΓ_i + ∫( v·(∇(du)·n_Γ_o))dΓ_o
 
     #residual and jacobian
-    res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v) #- neumann(u,v)  
+    res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v) - neumann(u,v)  
     jac((u,p),(du,dp),(v,q)) = a((du,dp),(v,q)) + dc(u,du,v) #+ dneumann(du,v)
 
     ###############

@@ -28,8 +28,8 @@ add_tag_from_tags!(labels,"inlet",[6,]) #change the tag of the face with tag 6 t
 add_tag_from_tags!(labels,"wall",[1,2,3,4,7,8]) #change the tag of the faces with tags 1,2,3,4,5,7,8 to "diri0"
 add_tag_from_tags!(labels,"outlet",[5,]) #change the tag of the face with tag 6 to "diri1"
 
-# writevtk(model,"models/2D_square")
-# model=GmshDiscreteModel("first_steps/models/cylinder_lighter.msh")
+# # writevtk(model,"models/2D_square")
+# model=GmshDiscreteModel("models/cylinder_lighter.msh")
 
 
 
@@ -40,7 +40,7 @@ D = 2
 
 order = 2
 reffeᵤ = ReferenceFE(lagrangian,VectorValue{D,Float64},order)
-V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall"])#flux at inlet is constant
+V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall", "inlet"])#flux at inlet is constant
 
 # We will use a Lagrangian finite element space of order 1 for pressure
 reffeₚ = ReferenceFE(lagrangian,Float64,order-1;space=:P)
@@ -50,10 +50,10 @@ Q = TestFESpace(model,reffeₚ,conformity=:L2) #if neumann conditions or no cond
 # create trial space for velocity and pressure
 #set Dirichlet boundary conditions for velocity
 uDwalls = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0)
-uDtop = (D == 2) ? VectorValue(0,1) : VectorValue(0,0,10) #this is the velocity at the top boundary
+uDtop = (D == 2) ? VectorValue(0,1) : VectorValue(0,0,-10) #this is the velocity at the top boundary
 uDbottom = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0) #this is the velocity at the bottom boundary
 
-U = TrialFESpace(V,[uDwalls])
+U = TrialFESpace(V,[uDwalls, uDtop])
 P = TrialFESpace(Q)
 
 mfs = BlockMultiFieldStyle(2,(1,1),(1,2))
@@ -116,7 +116,7 @@ solver_u = LUSolver()
 solver_p = CGSolver(JacobiLinearSolver();maxiter=50,atol=8.e-5,rtol=1.e-6)
 #solver_p.log.depth = 4
 
-α = 5
+α = 1.e2
 
 
 u_block = NonlinearSystemBlock()
@@ -140,6 +140,6 @@ nls = NewtonSolver(solver;maxiter=15,atol=1.e-6,rtol=1.e-12, verbose=true)
 uh, ph = solve(nls,op)
 
 #save the solution
-outputfile = "tutorial_outputs/exploring_neumann_boundaries/NS_2D_last"
+outputfile = "tutorial_outputs/exploring_neumann_boundaries/NS_2D"
 writevtk(Ωₕ,outputfile,cellfields=["uh"=>uh,"ph"=>ph])
 print("Solution saved to ", outputfile)

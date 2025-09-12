@@ -34,7 +34,7 @@ function main(nparts, distribute)
   D = 3
   order = 2
   reffeᵤ = ReferenceFE(lagrangian,VectorValue{D,Float64},order)
-  V = TestFESpace(model,reffeᵤ;conformity=:H1,dirichlet_tags=["wall", "outlet", "inlet"])
+  V = TestFESpace(model,reffeᵤ;conformity=:H1,dirichlet_tags=["wall", "inlet"])
 
   # We will use a Lagrangian finite element space of order 1 for pressure
   reffeₚ = ReferenceFE(lagrangian,Float64,order-1;space=:P)
@@ -44,7 +44,7 @@ function main(nparts, distribute)
   #set Dirichlet boundary conditions for velocity
   uDwall = VectorValue(0,0,0)
   uDinlet = VectorValue(0,1,0) #this is the velocity at the inlet boundary
-  U = TrialFESpace(V,[uDwall,uDwall, uDinlet])
+  U = TrialFESpace(V,[uDwall, uDinlet])
   P = TrialFESpace(Q)
 
   mfs = BlockMultiFieldStyle(2,(1,1),(1,2))
@@ -58,12 +58,14 @@ function main(nparts, distribute)
   Ωₕ = Triangulation(model)
   dΩ = Measure(Ωₕ,degree)
 
-  # #around inlet and outlets
-  # Γ_i = BoundaryTriangulation(model,tags=["inlet"])
-  # dΓ_i = Measure(Γ_i,degree)
-  # # n_Γ_i = get_normal_vector(Γ_i)
-  # n_Γ_i(x)=VectorValue(0,1)
+  #around inlet and outlets
+    Γ_i = BoundaryTriangulation(model,tags=["inlet"])
+    dΓ_i = Measure(Γ_i,degree)
+    n_Γ_i = -get_normal_vector(Γ_i)
 
+    Γ_o = BoundaryTriangulation(model,tags=["outlet"])
+    dΓ_o = Measure(Γ_o,degree)
+    n_Γ_o = -get_normal_vector(Γ_o)
 
 
   ###################
@@ -80,8 +82,17 @@ function main(nparts, distribute)
   c(u,v) = ∫( v⊙(conv∘(u,∇(u))) )dΩ
   dc(u,du,v) = ∫( v⊙(dconv∘(du,∇(du),u,∇(u))) )dΩ
 
+  #neumann pressure boundary condition
+  p_inlet= 1000
+  p_out=0
+  h_vflux_i= 10
+  h_vflux_o= 0
+
+  #pressure neumann boundary conditions with free flux
+  neumann(u,v)=  ∫( (v·n_Γ_i) * p_inlet )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ_o #- ∫( v·(∇(u)·n_Γ_i))dΓ_i - ∫( v·(∇(u)·n_Γ_o))dΓ_o
+
   #residual and jacobian
-  res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v)
+  res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v) - neumann(u,v)
   jac((u,p),(du,dp),(v,q)) = a((du,dp),(v,q)) + dc(u,du,v)
 
   ###############

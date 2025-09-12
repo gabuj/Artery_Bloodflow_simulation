@@ -24,7 +24,7 @@ D = 3
 
 order = 2
 reffeᵤ = ReferenceFE(lagrangian,VectorValue{D,Float64},order)
-V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall"])#flux at inlet is constant
+V = TestFESpace(model,reffeᵤ,conformity=:H1,dirichlet_tags=["wall", "inlet"])#flux at inlet is constant
 
 # We will use a Lagrangian finite element space of order 1 for pressure
 reffeₚ = ReferenceFE(lagrangian,Float64,order-1;space=:P)
@@ -37,7 +37,7 @@ uDwalls = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0)
 uDtop = (D == 2) ? VectorValue(0,1) : VectorValue(0,0,10) #this is the velocity at the top boundary
 uDbottom = (D == 2) ? VectorValue(0,0) : VectorValue(0,0,0) #this is the velocity at the bottom boundary
 
-U = TrialFESpace(V,[uDwalls])
+U = TrialFESpace(V,[uDwalls, uDtop])
 P = TrialFESpace(Q)
 
 mfs = BlockMultiFieldStyle(2,(1,1),(1,2))
@@ -56,9 +56,13 @@ dΩ = Measure(Ωₕ,degree)
 dΓ_i = Measure(Γ_i,degree)
 n_Γ_i = -get_normal_vector(Γ_i)
 
-Γ_o = BoundaryTriangulation(model,tags=["outlet"])
-dΓ_o = Measure(Γ_o,degree)
-n_Γ_o = -get_normal_vector(Γ_o)
+Γ_o1 = BoundaryTriangulation(model,tags=["outlet1"])
+dΓ_o1 = Measure(Γ_o1,degree)
+n_Γ_o1 = -get_normal_vector(Γ_o1)
+
+Γ_o2 = BoundaryTriangulation(model,tags=["outlet2"])
+dΓ_o2 = Measure(Γ_o2,degree)
+n_Γ_o2 = -get_normal_vector(Γ_o2)
 
 ###################
 #define weak form functions/terms
@@ -84,12 +88,13 @@ h_vflux_i= 10
 h_vflux_o= 0
 
 #pressure neumann boundary conditions with free flux
-neumann(u,v)=  ∫( (v·n_Γ_i) * p_inlet )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ_o #- ∫( v·(∇(u)·n_Γ_i))dΓ_i - ∫( v·(∇(u)·n_Γ_o))dΓ_o
+neumann(u,v)=  ∫( (v·n_Γ_i) * p_inlet )dΓ_i + ∫( (v·n_Γ_o) * p_out )dΓ_o1 + ∫( (v·n_Γ_o) * p_out )dΓ_o2 
+
 
 dneumann(du,v)= ∫( v·(∇(du)·n_Γ_i))dΓ_i + ∫( v·(∇(du)·n_Γ_o))dΓ_o
 
 #residual and jacobian
-res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v) #- neumann(u,v)  
+res((u,p),(v,q)) = a((u,p),(v,q)) + c(u,v) - neumann(u,v)  
 jac((u,p),(du,dp),(v,q)) = a((du,dp),(v,q)) + dc(u,du,v) #+ dneumann(du,v)
 
 ###############
